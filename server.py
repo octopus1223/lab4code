@@ -25,7 +25,38 @@ class UDPServer:
         finally:
             self.welcome_socket.close()
     
-
+    def handle_download_request(self, request, client_address):
+        parts = request.split()
+        if len(parts) < 2 or parts[0] != "DOWNLOAD":
+            print("Invalid download request")
+            return
+        
+        filename = parts[1]
+        file_path = filename
+        
+        if not os.path.exists(file_path):
+            error_response = f"ERR {filename} NOT_FOUND"
+            self.welcome_socket.sendto(error_response.encode(), client_address)
+            print(f"File {filename} not found, sent error response to client")
+            return
+        
+        file_size = os.path.getsize(file_path)
+        data_port = self.choose_data_port()
+        
+        ok_response = f"OK {filename} SIZE {file_size} PORT {data_port}"
+        self.welcome_socket.sendto(ok_response.encode(), client_address)
+        print(f"Sent OK response to client, file: {filename}, size: {file_size}, data port: {data_port}")
+        
+        thread = threading.Thread(
+            target=self.handle_file_transmission,
+            args=(filename, client_address, data_port)
+        )
+        thread.daemon = True
+        thread.start()
+    
+    def choose_data_port(self):
+        return random.randint(50000, 51000)
+    
 
 
 
