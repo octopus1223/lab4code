@@ -91,5 +91,52 @@ class UDPServer:
         data_socket.close()
         return True
     
-
+    def run(self):
+        server_address = (self.server_host, self.server_port)
+        
+        try:
+            with open(self.file_list, 'r') as f:
+                filenames = [line.strip() for line in f if line.strip()]
+            
+            if not filenames:
+                print("File list is empty")
+                return
+            
+            for filename in filenames:
+                print(f"\n===== Starting processing file {filename} =====")
+                
+                download_request = f"DOWNLOAD {filename}"
+                response = self.send_and_receive(download_request, server_address)
+                
+                if response is None:
+                    print(f"Failed to download file {filename}, skipping")
+                    continue
+                
+                parts = response.split()
+                if len(parts) < 2:
+                    print(f"Received invalid response: {response}")
+                    continue
+                
+                if parts[0] == "OK":
+                    if len(parts) < 6 or parts[3] != "SIZE" or parts[5] != "PORT":
+                        print(f"Received malformed OK response: {response}")
+                        continue
+                    
+                    file_size = int(parts[4])
+                    data_port = int(parts[6])
+                    
+                    self.download_file(filename, data_port, file_size)
+                    
+                elif parts[0] == "ERR" and parts[2] == "NOT_FOUND":
+                    print(f"File {filename} not found on server")
+                else:
+                    print(f"Received unknown response: {response}")
+                
+                print(f"===== Processing file {filename} complete =====")
+            
+        except Exception as e:
+            print(f"Error running client: {e}")
+        finally:
+            self.client_socket.close()
+            print("Client closed")
 
